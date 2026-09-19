@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Theatre board · OT Scheduling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="masthead">
+  <h1>Operating theatre scheduling</h1>
+  <span class="day">Live board · surgical services</span>
+  <nav>
+    <a href="{{ url_for('index') }}">Requests</a>
+    <a href="{{ url_for('dashboard') }}" aria-current="page">Board</a>
+  </nav>
+</header>
+
+<main>
+  <div id="notice" class="notice" hidden></div>
+
+  <section class="panel">
+    <h2>Today's theatres</h2>
+    <p class="hint">Each bar is a booked case. The gap after a bar is cleaning and turnover time,
+       during which the theatre is unavailable but the surgeon is not.</p>
+    <div class="board"><div class="board-inner" id="board-inner"></div></div>
+    <div class="stats" id="stats" style="margin-top:1.25rem"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Emergency arrival</h2>
+    <p class="hint">The scheduler looks for a free theatre first. If there isn't one within the safe
+       window, it moves the fewest elective cases needed and rebooks them later the same day.</p>
+
+    <form id="emergency-form">
+      <div class="grid2">
+        <div>
+          <label for="e-patient">Patient</label>
+          <input id="e-patient" name="patient" placeholder="Unidentified patient">
+        </div>
+        <div>
+          <label for="e-procedure">Procedure</label>
+          <input id="e-procedure" name="procedure" required value="Emergency laparotomy">
+        </div>
+        <div>
+          <label for="e-duration">Expected duration, minutes</label>
+          <input id="e-duration" name="duration" type="number" min="15" max="480" step="5" value="105" required>
+        </div>
+        <div>
+          <label for="e-surgeon">Surgeon on call</label>
+          <select id="e-surgeon" name="surgeon_id" required>
+            {% for s in resources.surgeons %}
+              <option value="{{ s.id }}">{{ s.name }} — {{ s.specialty }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="e-ot">Theatre required</label>
+          <select id="e-ot" name="ot_type">
+            <option value="any">Any available theatre</option>
+            {% for t in resources.theatres|map(attribute='ot_type')|unique %}
+              <option value="{{ t }}" {% if t == 'general' %}selected{% endif %}>{{ t|capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="e-arrives">Patient in theatre from</label>
+          <input id="e-arrives" name="arrives_at" type="time" step="300" value="11:20">
+        </div>
+      </div>
+
+      <fieldset style="margin-top:1rem">
+        <legend>Equipment needed</legend>
+        <div class="checks">
+          {% for e in resources.equipment %}
+            <label><input type="checkbox" name="equipment" value="{{ e.id }}"> {{ e.name }}</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="danger">Add emergency and recalculate</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="columns">
+    <section class="panel">
+      <h2>Waiting for a slot</h2>
+      <div id="waitlist" style="margin-top:.75rem"></div>
+      <h3 style="margin-top:1.5rem">Surgeon hours</h3>
+      <table><tbody id="surgeon-load"></tbody></table>
+    </section>
+
+    <section class="panel">
+      <h2>What the scheduler did</h2>
+      <p class="hint">Most recent first.</p>
+      <ul class="log" id="log"></ul>
+    </section>
+  </div>
+</main>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New surgery request · OT Scheduling</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="masthead">
+  <h1>Operating theatre scheduling</h1>
+  <span class="day">Surgical services · today's list</span>
+  <nav>
+    <a href="{{ url_for('index') }}" aria-current="page">Requests</a>
+    <a href="{{ url_for('dashboard') }}">Board</a>
+  </nav>
+</header>
+
+<main>
+  <div id="notice" class="notice" hidden></div>
+
+  <section class="panel">
+    <h2>Book a surgery</h2>
+    <p class="hint">The scheduler places each case in the earliest slot where the surgeon,
+       theatre and equipment are all free. Add a deadline for anything time-critical.</p>
+
+    <form method="post" action="{{ url_for('create_request') }}">
+      <div class="grid2">
+        <div>
+          <label for="patient">Patient</label>
+          <input id="patient" name="patient" required placeholder="Name or MRN">
+        </div>
+        <div>
+          <label for="procedure">Procedure</label>
+          <input id="procedure" name="procedure" required placeholder="e.g. Hernia repair">
+        </div>
+        <div>
+          <label for="duration">Expected duration, minutes</label>
+          <input id="duration" name="duration" type="number" min="15" max="720" step="5" value="90" required>
+        </div>
+        <div>
+          <label for="surgeon_id">Surgeon</label>
+          <select id="surgeon_id" name="surgeon_id" required>
+            {% for s in resources.surgeons %}
+              <option value="{{ s.id }}">{{ s.name }} — {{ s.specialty }} ({{ s.shift_start }}–{{ s.shift_end }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="ot_type">Theatre required</label>
+          <select id="ot_type" name="ot_type">
+            <option value="any">Any available theatre</option>
+            {% for t in resources.theatres|map(attribute='ot_type')|unique %}
+              <option value="{{ t }}">{{ t|capitalize }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="priority">Priority</label>
+          <select id="priority" name="priority">
+            <option value="elective">Elective — can move if needed</option>
+            <option value="urgent">Urgent — hold the slot</option>
+          </select>
+        </div>
+        <div>
+          <label for="earliest_start">Patient ready from</label>
+          <input id="earliest_start" name="earliest_start" type="time" step="300">
+        </div>
+        <div>
+          <label for="deadline">Must finish by</label>
+          <input id="deadline" name="deadline" type="time" step="300">
+        </div>
+      </div>
+
+      <fieldset style="margin-top:1rem">
+        <legend>Equipment needed</legend>
+        <div class="checks">
+          {% for e in resources.equipment %}
+            <label><input type="checkbox" name="equipment" value="{{ e.id }}"> {{ e.name }} ({{ e.units }})</label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit">Add to the list</button>
+        <a href="{{ url_for('dashboard') }}">Skip to the board</a>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Today's requests</h2>
+    <p class="hint">{{ requests|length }} submitted. Nothing is fixed until the board is generated.</p>
+    <table>
+      <thead>
+        <tr><th>ID</th><th>Patient</th><th>Procedure</th><th>Duration</th>
+            <th>Surgeon</th><th>Theatre</th><th>Priority</th><th>Must finish by</th></tr>
+      </thead>
+      <tbody>
+        {% for r in requests %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.patient }}</td>
+          <td>{{ r.procedure }}</td>
+          <td>{{ r.duration }} min</td>
+          <td>{{ resources.surgeons | selectattr('id', 'equalto', r.surgeon_id) | map(attribute='name') | first }}</td>
+          <td>{{ r.ot_type }}</td>
+          <td><span class="tag" data-priority="{{ r.priority }}">{{ r.priority }}</span></td>
+          <td>{{ to_clock(r.deadline) if r.deadline else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <form method="post" action="{{ url_for('reset') }}" class="actions">
+      <button type="submit" class="secondary">Reload the sample day</button>
+    </form>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
